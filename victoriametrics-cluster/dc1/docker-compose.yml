@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  vminsert:
+    image: victoriametrics/vminsert:v1.95.1-cluster
+    container_name: vminsert-dc1
+    restart: always
+    ports:
+      - "8480:8480"
+    command:
+      - '-storageNode=dc1_vmstorage:8400'
+      - '-storageNode=dc2_vmstorage:9400'  # Remote storage node from DC2
+      - '-replicationFactor=2'
+      - '-httpListenAddr=:8480'
+    networks:
+      - vmnet
+    depends_on:
+      - vmstorage
+
+  vmselect:
+    image: victoriametrics/vmselect:v1.95.1-cluster
+    container_name: vmselect-dc1
+    restart: always
+    ports:
+      - "8481:8481"
+    command:
+      - '-storageNode=dc1_vmstorage:8401'
+      - '-storageNode=dc2_vmstorage:9401'  # Remote storage node from DC2
+      - '-httpListenAddr=:8481'
+      - '-cacheDataPath=/tmp/vmselect'
+    volumes:
+      - vmselect_cache:/tmp/vmselect
+    networks:
+      - vmnet
+    depends_on:
+      - vmstorage
+
+  vmstorage:
+    image: victoriametrics/vmstorage:v1.95.1-cluster
+    container_name: dc1_vmstorage
+    restart: always
+    ports:
+      - "8400:8400"
+      - "8401:8401"
+      - "8482:8482"
+    command:
+      - '-storageDataPath=/storage'
+      - '-httpListenAddr=:8482'
+      - '-vminsertAddr=:8400'
+      - '-vmselectAddr=:8401'
+    volumes:
+      - vmstorage_data:/storage
+    networks:
+      - vmnet
+
+networks:
+  vmnet:
+    driver: bridge
+
+volumes:
+  vmselect_cache:
+  vmstorage_data:
